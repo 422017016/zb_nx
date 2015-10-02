@@ -1,0 +1,402 @@
+NuttX 配置系统
+1 简介
+NuttX 源代码采用与 Linux 内核相同的配置系统，不像 eCos 那样自己搞一套配置系统。该配置系统主要包括 Kconfig、 Makefile 和配置工具，可以生成配置界面。配置界面是通过配置工具来生成的，配置工具通过 Makefile 编译执行，配置界面中的选项则是通过各级 Kconfig 文件来定义。
+
+Kconfig 配置数据文件出现在几乎所有的 NuttX 目录。这些数据文件仍然是开发的一部分。 Kconfig 文件包含与该 Kconfig 文件所处的目录相关联的配置信息。
+
+NuttX 的主 Kconfig 文件是 nuttx/Kconfig。主 Kconfig 文件调用各级子目录的 Kconfig 文件和应用程序目录的 Kconfig 文件，形成树状关系。
+
+菜单按照树状结构组织，主菜单下有子菜单，子菜单还有子菜单或者配置选项。每个选项可以有依赖关系，这些依赖关系用于确定它是否显示。只有被依赖项的父项已经选中，子项才会显示。
+
+NuttX 使用 kconfig 前端作为配置工具。kconfig 前端已经在《NuttX 安装脚本》一文中介绍了安装。安装后生成可执行文件 kconfig-mconf。
+
+make 命令调用 Makefile 文件。NuttX 的顶层 Makefile 文件是 nuttx/Makefile，它只是简单地包含了 nuttx/Makefile.unix ，在 nuttx/Makefile.unix 中有如下几行： 
+menuconfig:
+    $(Q) APPSDIR=${CONFIG_APPS_DIR} kconfig-mconf Kconfig
+其中， CONFIG_APPS_DIR在预设的 .config 文件中定义，如果没有定义，默认为 ../apps。目标 menuconfig 调用命令 kconfig-mconf 进行配置。 
+2 操作方法
+nuttx/.config 是预设的 .config 文件。从 nuttx/config/<板卡>/<目标配置>/defconfig 而来。由《NuttX 安装脚本》中的以下几行实现： 
+echo "nuttx配置"
+cd $BASEDIR/$TOPDIR/nuttx/tools
+./configure.sh $TARGETCONFIG
+在 nuttx 目录下执行 make menuconfig 命令，读取预设的 .config 文件，调出基于文本菜单的配置界面，如图所示：
+
+键盘操作方法：
+高亮字母为热键按<方向键>浏览菜单按<Enter>选择子菜单按<Y>包含该选项按<N>不包含该选项按<M>编译成模块按<Esc><Esc>退出也可以使用<空格>键进行选择这里的括号有3种：
+中括号：要么是空，表示包含该选项 ，要么是"*"，表示不包含该选项。尖括号：可以是空、"*"和"M"，多一样选择，可以编译成模块。圆括号：在所提供的几个选项中选择一项或手工输入限定范围的值。 
+3 配置选项
+3.1 构建设置（Build Setup）
+Prompt for development and/or incomplete code/drivers--对正在开发的和未完善的代码和驱动进行提示。
+Default to smallest size--将默认值设置为编译成最小尺寸。不影响你更改默认值，也不影响你配置文件中的现有设置，只应用于需要默认值的新设置。
+Build Host Platform--构建的主机平台，可选择 Linux、OSX、Windows、Other。
+Build Configuration--构建配置
+Binary Output Formats--二进制输出格式
+Customize Header Files--定制头文件
+Debug Options--调试选项
+Optimization Level--优化等级 
+3.2 系统类型（System Type）
+CPU Architecture--CPU架构
+(此处略去架构特定的配置）
+*** Board Settings ***
+Delay loops per millisecond--用于系统引导和驱动初始化的延时循环（毫秒）
+Calibrate delay loop--校准延时循环
+*** Interrupt options ***
+Interrupt Stack Size--中断栈大小
+*** Boot options ***
+Boot Mode--引导模式
+Boot Memory Configuration--引导内存配置 
+3.3 板卡选择（Board Selection）
+Select target board--选择目标板
+*** Common Board Options ***
+Board LED support--板载LED支持
+Board button support--板载按钮支持
+MMC/SD minor number-- MMC/SD主设备号
+MMC/SD slot number-- MMC/SD插槽
+MMC/SD SPI device number-- MMC/SD所用的 SPI 设备号
+*** Board-Specific Options *** 
+3.4 RTOS特征（RTOS Features）
+Custom board/driver initialization--自定义的板卡/驱动初始化
+Milliseconds per system timer tick--系统时钟节拍的毫秒数
+64-bit system clock--64位系统时钟
+Round robin timeslice (MSEC)--轮转时间片长度
+Enable CPU load monitoring--启用CPU负载监控
+Monitor system performance--监控系统运行
+Maximum task name size--任务名称的最大大小
+Support parent/child task relationships--支持父子任务关系
+Enables Julian time conversions--启用Julian时间转换
+Start year--起始年
+Start month--起始月
+Start day--起始日
+Enable /dev/console--启用/dev/console
+Enable mutex types--启用互斥体类型
+Enable priority inheritance--启用优先级继承
+Disable cloning of file descriptors--禁用文件描述符克隆
+Disable clone file descriptors without stdio--在stdio之外禁止克隆文件描述符
+Disable cloning of socket descriptors--禁用套接字描述符克隆
+Enable waitpid() API--启用 waitpid() API
+Enable startup hook--启用启动钩子
+Enable atexit() API--启用 atexit() API
+Enable on_exit() API--启用 on_exit() API
+Application entry point--应用程序入口点
+Disable NuttX interfaces--禁用 NuttX接口
+Disable clock interfaces--禁用时钟接口
+Disable POSIX timers--禁用 POSIX定时器
+Disable pthread support--禁用 pthread支持
+Disable signal support--禁用信号支持
+Disable POSIX message queue support--禁用 POSIX消息队列支持
+Disable environment variable support--禁用环境变量支持
+*** Signal Numbers ***
+SIGUSR1--SIGUSR1的数量
+SIGUSR2--SIGUSR2的数量
+SIGALRM--SIGALRM的数量
+SIGCONDTIMEDOUT--SIGCONDTIMEDOUT的数量
+SIGWORK--SIGWORK的数量
+*** Sizes of configurable things (0 disables) ***
+Max number of tasks--任务的最大数量
+Maximum number of task arguments--任务参数的最大数量
+Maximum number of pthread keys-- pthread键的最大数量
+Maximum number of file descriptors per task--每个任务的文件描述符的最大数量
+Maximum number of FILE streams--文件流的最大数量
+Maximum size of a file name--文件名的最大大小
+Number of pre-allocated messages--预分配的消息的数量
+Maximum message size--最大消息大小
+Maximum number of watchdog parameters--看门狗参数的最大数量
+Number of pre-allocated watchdog timers--预分配的看门狗定时器的数量
+Number of pre-allocated POSIX timers--预分配的 POSIX定时器的数量
+*** Stack and heap information ***
+Idle thread stack size--空闲线程栈的大小
+Main thread stack size--主线程栈的大小
+Minimum pthread stack size--最大 pthread栈的大小
+Default pthread stack size--默认 pthread栈的大小 
+3.5 设备驱动（Device Drivers）
+Disable driver poll interfaces--禁用驱动程序轮询接口
+Enable /dev/null--启用/dev/null
+Enable /dev/zero--启用/dev/zero
+Enable loop device--启用回环设备
+RAM Disk Support--RAM盘支持
+CAN Driver Support--CAN驱动支持
+PWM Driver Support--PWM驱动支持
+I2C Driver Support--I2C驱动支持
+SPI Driver Support--SPI驱动支持
+I2S Driver Support--I2S驱动支持
+RTC Driver Support--RTC驱动支持
+Watchdog Timer Support--看门狗定时器支持
+Analog Device(ADC/DAC) Support--模拟设备（ ADC/DAC）支持
+Audio Device Support--音频设备支持
+Video Device Support--视频设备支持
+Block-to-Character (BCH) Support--块驱动到字符驱动（BCH）支持
+Input Device Support--输入设备支持
+LCD Driver Support--LCD驱动支持
+MMC/SD Driver Support--MMC/SD驱动支持
+Memory Technology Device (MTD) Support--存储技术设备（MTD）支持
+Network Device/PHY Support--网络设备/PHY支持
+FIFO and named pipe drivers--FIFO和命名管道驱动
+Power management (PM) driver interfaces--电源管理（PM）驱动接口
+Power Management Support--电源管理支持
+Sensor Device Support--传感器设备支持
+Osmocom-bb Sercomm Driver Support--Osmocom-bb Sercomm 驱动支持
+Serial Driver Support--串口驱动支持
+USB Device Driver Support--USB设备驱动支持
+USB Host Driver Support--USB主机驱动支持
+Wireless Device Support--无线设备支持
+*** System Logging Device Options ***
+*** System Logging ***
+RAM log device support--RAM日志设备支持 
+3.6 网络支持（Networking Support）
+Networking support--联网支持
+Not interrupt driven--无中断驱动
+Use multiple device-side I/O buffers--使用多个设备侧I/O缓冲
+Promiscuous mode--混杂模式
+Number of socket descriptor--套接字描述符的数量
+Max socket operations--套接字操作的最大并发数
+Socket options--套接字选项
+SO_LINGER socket option--SO_LINGER套接字选项
+Network packet buffer size (MTU)--网络数据包缓冲大小（MTU）
+Urgent data--紧急数据
+TCP/IP Networking--TCP/IP联网
+UDP Networking--UDP联网
+ICMP networking support--ICMP联网支持
+ICMP ping interfaces--ICMP ping 接口
+Ping address configuration--Ping地址配置
+IGMPv2 clientsupport--IGMPv2客户端支持
+Collect network statistics--收集网络统计
+Receive window size--接收窗口大小
+ARP table size--ARP表大小
+ARP address harvesting--ARP地址获取
+Routing table suport--路由表支持
+Multi-cast Tx support--多播发送支持
+SLIP support--SLIP支持 
+3.7 文件系统（File Systems）
+*** File system configuration ***
+Disable support for mount points--禁止支持挂载点
+Disable pseudo-filesystem operations--禁止伪文件系统的操作
+File mapping emulation--文件映射仿真
+FAT file system--FAT文件系统
+FAT upper/lower names--FAT upper/lower 名称
+FAT long file names--FAT长文件名
+FAT maximum file name size--FAT最大文件名大小
+FAT timestamps--FAT时间戳
+DMA memory allocator--DMA内存分配器
+NFS client file system--NFS客户端文件系统
+NXFFS file system--NXFFS文件系统
+ROMFS file system--ROMFS文件系统
+SMART file system--SMART文件系统
+BINFS File System--BINFS文件系统
+PROCFS File System--PROCFS文件系统
+*** System Logging ***
+Enable SYSLOG Controls--启用 SYSLOG 控制
+Advanced SYSLOG features--高级 SYSLOG 特征 
+3.8 图形支持（Graphics Support）
+NX Graphics--NX Graphics 
+3.9 内存管理（Memory Management）
+Build support for multiple heaps--多堆构建支持
+Small memory model--小内存模型
+Number of memory regions--内存区数量
+Enable Granule Allocator--启用粒度分配器 
+3.10 音频支持（Audio Support）
+Audio Support--音频支持 
+3.11 二进制格式（Binary Formats）
+Disble BINFMT support--禁用 BINFMT支持
+Support PATH variable--支持 PATH变量
+Enable the NXFLAT Binary Format--启用 NXFLAT二进制格式
+Enable the ELF Binary Format--启用ELF二进制格式
+Support Builtin Applications--支持内建应用程序
+Symbol Tables Ordered by Name--按名称排序符号表 
+3.12 库例程（Library Routines）
+*** Standard C Library Options ***
+C STDIO buffer size--C STDIO缓冲区大小
+STDIO line buffering--STDIO行缓冲
+Number unget() characters--unget()的字符数
+Home directory--Home目录
+Standard Math library--标准数学库
+Disable sprintf support fieldwidth--禁止 sprintf 支持字段宽度
+Enable floating point in printf--在 printf 中启用浮点
+Order of the random number generate--随机数生成规则
+Newline Options--新行选项
+Enable exec[lv] / posix_spawn() Support--启用 exec[lv] / posix_spawn() 支持
+Spawn Stack Size--创建子栈的大小
+Default task_spawn Stack Size--默认 task_spawn 栈的大小
+Enable strerror--启用 strerror
+perror() to stdout--perror()输出到 stdout
+Low-level console output--底层控制台输出
+sendfile() buffer size--sendfile()缓冲区大小
+Support for ROM string access--支持ROM字符串访问
+Enable arch optimized functions--启用对特定架构优化的函数
+*** Non-standard Library Support ***
+Enable worker thread--启用工作者线程
+High priority (kernel) worker thread--高优先级（内核）工作者线程
+High priority worker thread priority--高优先级工作者线程的优先级
+High priority worker thread period--高优先级工作者线程的周期
+High priority worker thread stack size--高优先级工作者线程的栈大小
+Low priority (kernel) worker thread--低优先级（内核）工作者线程
+Keyboard CODEC--键盘编译码器
+Segment LCD CODEC--段式 LCD 编译码器
+*** Basic CXX Support ***
+sizeof(_Bool) is 8-bits--sizeof(_Bool) 为8位
+Have C++ compiler--有 C++ 编译器
+Have C++ initialization--有 C++ 初始化
+size_t is type long--size_t 为 long 类型
+*** uClibc++ Standard C++ Library ***
+Build uClibc++ (must be installed)--构建 uClibc++ （必须已安装） 
+3.13 应用程序配置（Application Configuration）
+Built-In Applications--内建应用程序
+Examples--示例
+Graphics Support--图形支持
+Interpreters--解释器
+Network Utilities--网络实用程序
+FreeModBus--FreeModBus 协议
+NSH Library--NSH 库
+NxWidgets/NxWM--NxWidgets/NxWM 图形用户界面包
+Platform-specific Support--平台特定的支持
+System Libraries and NSH Add-Ons--系统库和 NSH 插件 
+4 配置顺序
+基本的配置顺序是由下而上：
+选择构建环境选择处理器选择板卡选择支持的外设配置设备驱动配置应用程序选项对创建新的配置来说，这是相当正确的方向，但对修改现有的配置来说则不合适。 
+5 完成配置
+退出配置界面时选<Yes>保存，在 nuttx 目录下生成新的 .config 文件，如图所示：
+
+生下 .config 后，配置系统的任务就完成了。.config 去哪儿了，将在下一篇文章《NuttX 编译系统》一文中介绍。 
+6 手工修改 .config 文件
+.config 文件的格式如下所示： 
+#
+# Automatically generated file; DO NOT EDIT.
+# Nuttx/ Configuration
+#
+
+#
+# Build Setup
+#
+# CONFIG_EXPERIMENTAL is not set
+
+#
+# Build Configuration
+#
+# CONFIG_APPS_DIR="../apps"
+# CONFIG_BUILD_2PASS is not set
+
+#
+# Binary Output Formats
+#
+# CONFIG_RRLOAD_BINARY is not set
+CONFIG_INTELHEX_BINARY=y
+# CONFIG_MOTOROLA_SREC is not set
+CONFIG_RAW_BINARY=y
+
+#
+# Customize Header Files
+#
+# CONFIG_ARCH_STDBOOL_H is not set
+# CONFIG_ARCH_MATH_H is not set
+# CONFIG_ARCH_FLOAT_H is not set
+# CONFIG_ARCH_STDARG_H is not set
+
+#
+# Debug Options
+#
+# CONFIG_DEBUG is not set
+# CONFIG_DEBUG_SYMBOLS is not set
+......
+对于简单的修改，可以文本编辑器中进行，例如修改 NSH 的目标 IP 地址和主机 IP 地址： 
+CONFIG_NSH_IPADDR=0xc0a8020a
+CONFIG_NSH_DRIPADDR=0xc0a80201
+其中的十六进制赋值与点分十进制的对应关系如下：
+c0--192
+a8--168
+02--2
+0a--10 
+7 Kconfig 语言
+7.1 菜单项
+大多数选项定义一个配置选项，其它选项起辅助组织作用。一个配置选项可以被定义为如下形式： 
+config DEBUG_USB
+    bool "USB Debug Output"
+    default n
+    depends on USBDEV  USBHOST
+    help
+        Enable usb debug SYSLOG output (disabled by default)
+以关键字“config”开始一个新的配置选项，并可以跟随多个参数。后面的几行定义该配置选项的属性。属性可以是该配置选项的类型、输入提示、依赖关系、帮助文本和默认值。同名的配置选项可以被定义多次，但每次定义只能有单个输入提示并且类型不能冲突。 
+7.2 菜单属性
+一个菜单选项可以有多种属性，不过这些属性也不是任意用的，受到语法的限制。
+
+每个配置选项必须有类型定义。类型定义包括：bool、tristate、string、hex、int 共5种。其中有2 种基本的类型：tristate 和 string，每种类型定义可以有一个输入提示。
+
+输入提示："prompt" <prompt> ["if" <expr>]--每个菜单选项最多有一条提示，可以显示在菜单上。某选择提示可选的依赖关系可以通过“if”语句添加。
+
+默认值："default" <expr> ["if" <expr>]--配置选项可以有几个默认值。如果有多个默认值可选，只使用第一个默认值。某选项默认值还可以在其他地方定义，并且被前面定义的默认值覆盖。如果用户没有设置其他值，默认值就是配置符号的唯一值。如果有选择提示出现，就可以显示默认值并且可以配置修改。某默认值可选的依赖关系可以通过“if”语句添加。
+
+依赖关系："depends on"/"requires" <expr>--这个定义了菜单选项的依赖关系。如果定义多个依赖关系，那么要用“&&”符号连接。依赖关系对本菜单项中其他所有选项有效（也可以用“if”语句）。
+
+反向依赖："select" <symbol> ["if" <expr>]--普通的依赖关系是缩小符号的上限，反向依赖关系则是符号的下限。当前菜单符号的值用作符号可以设置的最小值。如果符号值被选择了多次，这个限制将被设成最大选择值。反向依赖只能用于布尔或者三态符号。
+
+数字范围："range" <symbol> <symbol> ["if" <expr>]--这允许对 int 和 hex 类型符号的输入值限制在一定范围内。用户输入的值必须大于等于第一个符号值并且小于等于第二个符号值。
+
+帮助文本："help"或者"help"--这可以定义帮助文本。帮助文本的结束是通过缩进层次判断的。当遇到一行缩进比帮助文本第一行小的时候，就认为帮助文本已经结束。“help”和“help”功能没有区别，主要给开发者提供不同于“help”的帮助。 
+7.3 菜单依赖关系
+依赖关系定义了菜单选项的显示，也能减少三态符号的选择范围。表达式的三态逻辑比布尔逻辑多一个状态，用来表示模块状态。依赖关系表达式的语法如下：
+<expr> ::= <symbol>                             (1)
+           <symbol> '=' <symbol>                (2)
+           <symbol> '!=' <symbol>               (3)
+           '(' <expr> ')'                       (4)
+           '!' <expr>                           (5)
+           <expr> '&&' <expr>                   (6)
+           <expr> '' <expr>                   (7)
+表达式是以优先级的降序列出的。
+
+(1) 把符号转换成表达式，布尔和三态符号可以转换成对应的表达式值。其他类型符号的结果都是“n”。
+(2) 如果两个符号的值相等，返回“y”，否则返回“n”。
+(3) 如果两个符号的值相等，返回“n”，否则返回“y”。
+(4) 返回表达式的值，括号内表达式优先计算。
+(5) 返回(2-/expr/)的计算结果。
+(6) 返回min(/expr/, /expr/)的计算结果。
+(7) 返回max(/expr/, /expr/)的计算结果。
+
+一个表达式的值是“n”、“m”或者“y”（或者对应数值的0、1、2）。当表达式的值为“m”或者“y”时，菜单选项变为显示状态。
+
+符号类型分为两种：常量和非常量符号。
+
+非常量符号最常见，可以通过 config 语句来定义。非常量符号完全由数字符号或者下划线组成。
+
+常量符号只是表达式的一部分。常量符号总是包含在引号范围内的。在引号中，可以使用其他字符，引号要通过“\”号转义。 
+7.4 菜单组织结构
+菜单选项的树状结构有两种组织方式。
+
+第一种是显式地声明为菜单。 
+menu "SPI Configuration"
+    depends on STM32_SPI
+
+config STM32_SPI_INTERRUPTS
+    bool "Interrupt driver SPI"
+    default n
+    help
+......
+endmenu
+“menu”与“endmenu”之间的部分成为“SPI Configuration”的子菜单。所有子选项继承该菜单的依赖关系，例如，依赖关系“STM32_SPI”就被添加到“STM32_SPI_INTERRUPTS”配置选项的依赖关系列表中。
+
+第二种是通过依赖关系确定菜单的结构。
+
+如果一个菜单选项依赖于前一个选项，它就是一个子菜单。这要求前一个选项和子选项同步地显示或者不显示。 
+config DISABLE_OS_API
+    bool "Disable NuttX interfaces"
+    default y
+......
+config DISABLE_CLOCK
+    bool "Disable clock interfaces"
+    depends on DISABLE_OS_API
+    default n
+DISABLE_CLOCK 依赖于 DISABLE_OS_API，这样只有 DISABLE_OS_API 不是“n”的时候才显示。 
+7.5 Kconfig 语法
+Kconfig 配置文件描述了一系列的菜单选项。每一行都用一个关键字开头（除了帮助文本）。下列关键字结束菜单选项：config、 menuconfig、 choice/endchoice、 comment、 menu/endmenu、 if/endif、 source。前五个也开始菜单选项的定义。
+
+config："config" <symbol>、<config options>--这可以定义一个配置符号<symbol>，并且可以配置选项属性。
+
+menuconfig："menuconfig" <symbol>、<config options>--这类似于简单的配置选项，但是它暗示：所有的子选项应该作为独立的选项列表显示。
+
+choices："choice"、<choice options>、<choice block>、"endchoice"--这定义了一个选择组，并且可以配置选项属性。每个选择项只能是布尔或者三态类型。布尔类型只允许选择单个配置选项，三态类型可以允许把任意多个选项配置成“m”。如果一个硬件设备有多个驱动程序，内核一次只能静态链接或者加载一个驱动，但是所有的驱动程序都可以编译为模块。选择项还可以接受另外一个选项“optional”,可以把选择项设置成“n”，并且不需要选择什么选项。
+
+comment："comment" <prompt>、<comment options>--这定义了一个注释，在配制过程中显示在菜单上，也可以回显到输出文件中。唯一可能的选项是依赖关系。
+
+Menu："menu" <prompt>、<menu options>、<menu block>、"endmenu"--这定义了一个菜单项，在菜单组织结构中有此描述。唯一可能的选项是依赖关系。
+
+If："if" <expr>、<if block>、"endif"--这定义了一个 if 语句块。依赖关系表达式 <expr> 附加给所有封装好的菜单选项。
+
+Source："source" <prompt>--读取指定的配置文件。读取的文件也会解析生成菜单。
+

@@ -1,0 +1,256 @@
+NuttX 编译系统 
+1 简介
+NuttX 是通过 Makefile 文件组织编译的。Makefile 文件描述了整个 NuttX 工程的编译、链接等规则，告诉 make 要编译哪些文件、怎样编译以及在什么条件下编译。NuttX 没有使用 Autoconf、 Automake、 CMake、 SCons 等自动化编译工具，它的 Makefile 文件完全由手工编写，比那些自动化编译工具所使用的编译文件更容易阅读，更容易理解软件的编译过程。正应了那句话：试图用一种方法使事情变得简单，结果却使事情变得更复杂。 
+2 Makefile 文件组织结构
+nuttx/Makefile: 顶层 Makefile 文件，内容很简单，根据主机环境，条件包含 Makefile.unix 或 Makefile.win。nuttx/Makefile.unix：Linux 环境下的 Makefile 文件。nuttx/Makefile.win：Windows 环境下的 Makefile 文件。nuttx/Make.defs：从 nuttx/config/<板卡>/<目标配置>/Make.defs 而来。各级子目录下的 Makefile、 Make.defs 和 Make.dep。 
+3 Makefile 文件包含树
+（顶层目录是 nuttx）
+`        <--.config
+         
+                          <--.config
+                          <--tools/Config.mk
+         <--Makefile.unix-
+Makefile-                              <--.config
+                          <--Make.defs-<--tools/Config.mk
+                                        <--arch/arm/src/armv7-m/Toolchain.defs
+         
+         <--Makefile.win-（略）
+可以看出，《nuttx 配置系统》中所生成的 .config 文件被包含在 Makefile 文件中。
+
+各级子目录下的 Makefile、 Make.defs 和 Make.dep 并不是通过 include 包含的，而是在执行 Makefile 文件中的 make 命令时调用的。 
+4 构建目标和选项
+4.1 构建目标：
+以下是在顶层 Makefile 文件中可用的构建目标的概述：
+
+all
+默认目标，按已选择的输出格式构建 NuttX 可执行文件。
+
+clean
+移除派生对象文件、静态库文件、可执行文件和临时文件，但保留配置和上下文的文件和目录。还保留 Make.dep 文件。
+
+distclean
+除了完成 “clean” 的工作之外，还包括移除所有配置和上下文的文件。本质是将目录结构还原为其原始的、未配置的状态。 
+4.2 应用程序内务处理目标
+APPDIR 变量引用用户应用程序目录。如 NuttX 包含的 app/ 目录，然而，这不被看作是 NuttX 的一部分，可以被一个不同的应用程序目录替代。在大多数情况下，应用程序目录在 Makefile 脚本中被看作像任何其它构建目录。但是，为方便起见，包含了以下目标，以支持从 NuttX 构建目录处理用户应用程序目录中的内务处理功能。
+
+apps_clean
+仅对用户应用程序目录执行 clean 操作。
+
+apps_distclean
+仅对用户应用程序目录执行 distclean 操作。 apps/.config 文件被保留，所以这不是一个完全的 distclean，但多于配置复位。
+
+export
+export 目标将打包 NuttX 库和头文件到可输出包。注意事项：(1) 需要对 KERNEL 构建做一些扩展。 (2) tools/mkexport.sh 中的逻辑只支持 GCC，例如，显式地假定静态库生成器为“ar”。
+
+download
+这是一个助手目标，它将重建 NuttX 并将其下载到目标系统，只需一步。此目标的操作完全依赖于用户 Make.defs 文件中的 DOWNLOAD 命令的实现。如果未定义 DOWNLOAD 命令，它将产生一个错误。 
+4.3 内部目标
+以下目标是由 make 逻辑内部使用的，但如果有必要，可以在某些条件下从命令行调用。
+
+depend
+创建构建依赖关系，生成 Make.dep 文件和 .depend 文件。（注意：当前在使用 Windows 本地工具链的 Cygwin 下不支持构建依赖关系）
+
+context
+在每次目标构建时调用 context 目标以确保正确配置了 NuttX。基本配置步骤包括在 include/nuttx 目录中创建 config.h 和 version.h 头文件，建立链接到配置目录的符号链接。
+
+clean_context
+这是 distclean 目标的一部分。它移除由 context 目标创建的所有头文件和符号链接。 
+4.4 构建选项
+当然，任何 make 变量的值都可以从命令行覆盖。然而，有一个特殊的变量赋值选项可能对你非常有用：
+
+V=1
+
+这是生成详细级别标志。如果你在命令行上指定 V=1，你将在构建时看到所使用的确切命令。当添加新的板卡或追踪编译时错误和警告时可能非常有用。 
+5 all 目标依赖树
+`                          <--pass1dep-<-╮
+             <--pass1deps-            <--tools/mkdeps$(HOSTEXEEXT)             
+                                                                               
+               ╭--╯       <--$(USERLIBS)（平面构建时为空)                          
+                                                                                
+                          <--pass2dep-<
+             <pass2deps-            <--tools/mkdeps$(HOSTEXEEXT)            
+                                                                              
+                         <--$(NUTTXLIBS)（与配置有关）<--╮                       
+                                                                              
+                   ╭--╯                       
+                                                                              
+                   <--lib/libsched$(LIBEXT)<--sched/libsched$(LIBEXT)<--
+                   <--lib/libc$(LIBEXT)<--libc/libc$(LIBEXT)<--
+                   <--lib/libmm$(LIBEXT)<--mm/libmm$(LIBEXT)<--
+all<--$(BIN)-      <--lib/libarch$(LIBEXT)<--$(ARCH_SRC)/libarch$(LIBEXT)<-
+                   <--lib/libcxx$(LIBEXT)<--libxx/libcxx$(LIBEXT)<
+                   <--lib/libapps$(LIBEXT)<--$(APPDIR)/libapps$(LIBEXT)<
+                   <--lib/libnet$(LIBEXT)<--net/libnet$(LIBEXT)<--
+                   <--lib/libfs$(LIBEXT)<--fs/libfs$(LIBEXT)<--
+                   <--lib/libdrivers$(LIBEXT)<--drivers/libdrivers$(LIBEXT)<--
+                   <--lib/libbinfmt$(LIBEXT)<--binfmt/libbinfmt$(LIBEXT)<--
+                                                                               
+                 ╰╮                                                    
+                                                                               
+               ╰--╮                                                       
+                                                                               
+             <--pass1<--╯                                                       
+                                                                                
+             <--pass2<╯                                                    
+                                                                                  
+      ╭╯
+      
+                 <--check_context
+                 
+                 <--include/nuttx/config.h-<--$(TOPDIR)/.config
+                                           <--tools/mkconfig$(HOSTEXEEXT)
+                 
+                 <--include/nuttx/version.h-<--$(TOPDIR)/.version
+                                            <--tools/mkversion$(HOSTEXEEXT)
+                 
+      <--context-<--include/math.h<--include/nuttx/math.h
+                  <--include/float.h<--include/nuttx/float.h
+                  <--include/stdarg.h<--include/nuttx/stdarg.h
+                  
+                              <--include/arch<-Make.defs
+                              
+                              <--include/arch/board-<--include/arch<--Make.defs
+                                                    <--Make.defs
+                              
+                  <--dirlinks-<--include/arch/chip-<--include/arch<--Make.defs
+                                                    <--Make.defs
+                               
+                               <--$(ARCH_SRC)/board<--Make.defs
+                               <--$(ARCH_SRC)/chip<--Make.defs
+                               <--include/apps<--Make.defs
+6 all 目标编译过程
+6.1 context 目标
+因为 all 目标是默认目标，所以执行无参数的 make 命令即为编译 all 目标，首先会尝试编译 context 目标，其中,根据 .config 文件生成 config.h，有许多 C 文件包含了 config.h，以获得用户配置。注意其中的2个目录软链接，下文会用到：
+
+$(ARCH_SRC)/board：
+将 nuttx/configs/shenzhou/src 目录链接到 nuttx/arch/arm/src/board 目录。
+
+$(ARCH_SRC)/chip：
+将 nuttx/arch/arm/src/stm32 目录链接到 nuttx/arch/arm/src/chip 目录。
+
+但是因为在安装 buildroot 时已经执行过一次 make context，而且执行 make clean 也不会删除 context 目标所生成的文件，所以这一步没做任何事。 
+6.2 pass1dep 目标
+pass1dep: context tools/mkdeps$(HOSTEXEEXT)
+        $(Q) for dir in $(USERDEPDIRS) ; do \
+                $(MAKE) -C $$dir TOPDIR="$(TOPDIR)" depend ; \
+        done
+平面构建是指将 NuttX 编译成单个二进制文件，构建的所有组件位于相同的地址空间，所有组件都可以访问所有其它组件。平面构建时 $(USERDEPDIRS) 为空，它也没做任何事。 
+6.3 $(USERLIBS) 目标
+平面构建时 $(USERLIBS) 为空，它也没做任何事。这样整个 pass1deps 目标就完成了。 
+6.4 pass2dep 目标
+pass2dep: context tools/mkdeps$(HOSTEXEEXT)
+        $(Q) for dir in $(KERNDEPDIRS) ; do \
+                $(MAKE) -C $$dir TOPDIR="$(TOPDIR)" EXTRADEFINES=$(KDEFINE) depend; \
+        done
+根据 $(KERNDEPDIRS) 变量的值，在各级子目录下生成 Make.dep 和 .depend文件。
+
+nuttx 目录下生成 Make.dep 和 .depend 文件的子目录有：
+nuttx/arch/arm/srcnuttx/binfmtnuttx/configs/shenzhou/srcnuttx/driversnuttx/fsnuttx/libcnuttx/libxxnuttx/mmnuttx/netnuttx/sched 
+6.5 $(NUTTXLIBS) 目标
+接下来就编译 pass2deps 目标中的 $(NUTTXLIBS)，这是一个多目标，根据配置的不同，具体的目标也不同。它的工作是生成多个静态库文件。这里生成了10个静态库文件：
+nuttx/lib/libapps.anuttx/lib/libarch.anuttx/lib/libbinfmt.anuttx/lib/libc.anuttx/lib/libcxx.anuttx/lib/libdrivers.anuttx/lib/libfs.anuttx/lib/libmm.anuttx/lib/libnet.anuttx/lib/libsched.a 下面以 libarch.a 为例，考查静态库的编译过程。
+$(ARCH_SRC)/libarch$(LIBEXT): context
+        $(Q) $(MAKE) -C $(ARCH_SRC) TOPDIR="$(TOPDIR)" libarch$(LIBEXT)
+其中： $(ARCH_SRC) = nuttx/arch/arm/src，$(LIBEXT) = .a。传递的不是变量名，而是变量中的值。第2行的意思是先切换到目录 nuttx/arch/arm/src，再执行 make 命令，传递参数 TOPDIR，编译目标 libarch.a，这里的 make 调用的是目录 nuttx/arch/arm/src 中的 Makefile，编译的是该 Makefile 中的目标。在 nuttx/arch/arm/src/Makefile 中先定义 BIN = libarch$(LIBEXT)，然后：
+$(BIN) $(KBIN): $(OBJS)
+        $(call ARCHIVE, $@, $(OBJS))
+其中：OBJS = $(AOBJS) $(COBJS)，而
+AOBJS = $(ASRCS:.S=$(OBJEXT))
+ASRCS = $(CHIP_ASRCS) $(CMN_ASRCS)
+
+COBJS = $(CSRCS:.c=$(OBJEXT))
+CSRCS = $(CHIP_CSRCS) $(CMN_CSRCS)
+
+nuttx/arch/arm/src/Makefile 包含了 nuttx/arch/arm/src/chip/Make.defs，4个变量 CHIP_ASRCS、 CMN_ASRCS、 CHIP_CSRCS、 CMN_CSRCS 都是在 nuttx/arch/arm/src/chip/Make.defs 中定义的，多次赋值后的变量值如下：
+
+CHIP_ASRCS = （空）
+
+CMN_ASRCS = up_saveusercontext.S up_fullcontextrestore.S up_switchcontext.S vfork.S
+
+CHIP_CSRCS = stm32_allocateheap.c stm32_start.c stm32_rcc.c stm32_lse.c stm32_lsi.c stm32_gpio.c stm32_exti_gpio.c stm32_flash.c stm32_irq.c stm32_timerisr.c stm32_dma.c stm32_lowputc.c stm32_serial.c stm32_spi.c stm32_sdio.c stm32_tim.c stm32_waste.c stm32_ccm.c stm32_i2c.c stm32_idle.c stm32_pmstop.c stm32_pmstandby.c stm32_pmsleep.c stm32_pminitialize.c stm32_eth.c stm32_pwr.c stm32_rtc.c
+
+CMN_CSRCS = up_assert.c up_blocktask.c up_copyfullstate.c up_createstack.c up_mdelay.c up_udelay.c up_exit.c up_initialize.c up_initialstate.c up_interruptcontext.c up_memfault.c up_modifyreg8.c up_modifyreg16.c up_modifyreg32.c up_releasepending.c up_releasestack.c up_reprioritizertr.c up_schedulesigaction.c up_sigdeliver.c up_systemreset.c up_unblocktask.c up_usestack.c up_doirq.c up_hardfault.c up_svcall.c up_vfork.c
+
+从这里可以查到哪些源文件被编译，哪些源文件没有被编译。
+
+命令 $(call ARCHIVE, $@, $(OBJS)) 打包静态库 libarch.a。
+
+现在回到nuttx/Makefile.unix：
+lib/libarch$(LIBEXT): $(ARCH_SRC)/libarch$(LIBEXT)
+        $(Q) install $(ARCH_SRC)/libarch$(LIBEXT) lib/libarch$(LIBEXT)
+其中： install 是 Linux 命令，这里等同于，将 libarch.a 到 nuttx/lib 目录。 
+6.6 pass1 目标
+pass1: pass1deps
+ifeq ($(CONFIG_BUILD_2PASS),y)
+        $(Q) if [ -z "$(CONFIG_PASS1_BUILDIR)" ]; then \
+                echo "ERROR: CONFIG_PASS1_BUILDIR not defined"; \
+                exit 1; \
+        fi
+        $(Q) if [ ! -d "$(CONFIG_PASS1_BUILDIR)" ]; then \
+                echo "ERROR: CONFIG_PASS1_BUILDIR does not exist"; \
+                exit 1; \
+        fi
+        $(Q) if [ ! -f "$(CONFIG_PASS1_BUILDIR)/Makefile" ]; then \
+                echo "ERROR: No Makefile in CONFIG_PASS1_BUILDIR"; \
+                exit 1; \
+        fi
+        $(Q) $(MAKE) -C $(CONFIG_PASS1_BUILDIR) TOPDIR="$(TOPDIR)" LINKLIBS="$(LINKLIBS)" USERLIBS="$(USERLIBS)" "$(CONFIG_PASS1_TARGET)"
+endif
+平面构建时不做任何事。 
+6.7 pass2 目标
+最后编译pass2 
+pass2: pass2deps
+        $(Q) $(MAKE) -C $(ARCH_SRC) TOPDIR="$(TOPDIR)" EXTRA_OBJS="$(EXTRA_OBJS)" LINKLIBS="$(LINKLIBS)" EXTRADEFINES=$(KDEFINE) $(BIN)
+        $(Q) if [ -w /tftpboot ] ; then \
+                cp -f $(BIN) /tftpboot/$(BIN).${CONFIG_ARCH}; \
+        fi
+ifeq ($(CONFIG_RRLOAD_BINARY),y)
+        @echo "MK: $(BIN).rr"
+        $(Q) $(TOPDIR)/tools/mkimage.sh --Prefix $(CROSSDEV) $(BIN) $(BIN).rr
+        $(Q) if [ -w /tftpboot ] ; then \
+                cp -f $(BIN).rr /tftpboot/$(BIN).rr.$(CONFIG_ARCH); \
+        fi
+endif
+ifeq ($(CONFIG_INTELHEX_BINARY),y)
+        @echo "CP: $(BIN).hex"
+        $(Q) $(OBJCOPY) $(OBJCOPYARGS) -O ihex $(BIN) $(BIN).hex
+endif
+ifeq ($(CONFIG_MOTOROLA_SREC),y)
+        @echo "CP: $(BIN).srec"
+        $(Q) $(OBJCOPY) $(OBJCOPYARGS) -O srec $(BIN) $(BIN).srec
+endif
+ifeq ($(CONFIG_RAW_BINARY),y)
+        @echo "CP: $(BIN).bin"
+        $(Q) $(OBJCOPY) $(OBJCOPYARGS) -O binary $(BIN) $(BIN).bin
+endif
+        @echo "DUMP: $(BIN).out"
+        $(Q) $(OBJDUMP) -x $(BIN) > $(HOME)/$(BIN).out
+        @echo "DUMP: $(BIN).S"
+        $(Q) $(OBJDUMP) -d -j .text -j .init_section -j .ARM.exidx -j .data -j .bss $(BIN) > $(HOME)/$(BIN).S
+        cp -f $(BIN) $(BIN).hex $(BIN).bin $(HOME)
+把静态库链接成 elf 格式的可执行文件，并转换成 .hex、 .bin 等其它格式的文件。最后5行是我加上去的，生成符号文件、反汇编文件，并把一些最终文件到 Linux 用户主目录。由《NuttX 安装脚本》中的以下几行实现： 
+if !(grep -q '    @echo "DUMP: $(BIN).out"' Makefile.unix); then
+  sed -i '/pass2:/,/^$/{
+    /^$/i\    @echo "DUMP: $(BIN).out"
+    /^$/i\    $(Q) $(OBJDUMP) -x $(BIN) > $(HOME)/$(BIN).out
+    /^$/i\    @echo "DUMP: $(BIN).S"
+    /^$/i\    $(Q) $(OBJDUMP) -d -j .text -j .init_section -j .ARM.exidx -j .data -j .bss $(BIN) > $(HOME)/$(BIN).S
+    /^$/i\    cp -f $(BIN) $(BIN).hex $(BIN).bin $(HOME)
+  }' Makefile.unix
+fi
+7 nuttx/Make.defs 文件
+nuttx/Make.defs 文件是 Makefile 片断，从 nuttx/config/<板卡>/<目标配置>/Make.defs 而来。由《NuttX 安装脚本》中的以下几行实现： 
+echo "nuttx配置"
+cd $BASEDIR/$TOPDIR/nuttx/tools
+./configure.sh $TARGETCONFIG
+该 Makefile 片断提供架构和工具特定的构建选项。它将在构建时被所有其它 Makefile 文件包含（一旦它被安装）。该 makefile 片断应定义：
+工具： CC、 LD、 AR、 NM、 OBJCOPY、 OBJDUMP 工具选项： CFLAGS、 LDFLAGS 当该 Makefile 片断运行时，它将被传递构建根目录的路径 TOPDIR。该 Makefile 片断应包含：
+
+$(TOPDIR)/.config： Nuttx 配置
+$(TOPDIR)/tools/Config.mk： 一般定义
+
+nuttx/Make.defs 文件中的定义可能依赖于 .config 文件中的一些设置。例如，如果 CONFIG_DEBUG=y， CFLAGS将最有可能不同。
+
+tools/Config.mk 文件包含额外的定义，这些定义可能在必要时被架构特定的 Make.defs 文件覆盖：
+COMPILE、 ASSEMBLE、 ARCHIVE、 CLEAN 和 MKDEP 宏
+
